@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora por Voz</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos CSS */
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .calculator-container {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 30px 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        .display-area {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .expression {
+            font-size: 1.2em;
+            color: #eee;
+            min-height: 30px;
+            text-align: right;
+            opacity: 0.7;
+        }
+
+        .result {
+            font-size: 2.8em;
+            font-weight: 600;
+            color: #fff;
+            text-align: right;
+            line-height: 1.2;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #mic-button {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+            transition: background-color 0.3s ease, transform 0.2s ease, opacity 0.3s ease;
+        }
+        
+        #mic-button:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        #mic-button:hover:not(:disabled) {
+            background-color: #ff4757;
+        }
+
+        #mic-button:active:not(:disabled), #mic-button.listening {
+            background-color: #e05050;
+            transform: scale(0.95);
+        }
+
+        #mic-button.listening svg {
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        #status-message {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #f0f0f0;
+            min-height: 20px;
+        }
+        
+        #status-message a {
+            color: #ffb8b8;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        /* Estilos para el modal de ayuda */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: #4e4376;
+            padding: 25px 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            width: 90%;
+            max-width: 420px;
+            text-align: left;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            color: #fff;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+        
+        .modal-content p {
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .modal-content ol {
+            padding-left: 20px;
+        }
+
+        .modal-content .note {
+            font-size: 0.9em;
+            background-color: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        
+        .modal-close-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            cursor: pointer;
+            float: right;
+            transition: background-color 0.2s ease;
+        }
+        
+        .modal-close-btn:hover {
+            background: #ff4757;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <div class="display-area">
+            <div id="expression-display" class="expression"></div>
+            <div id="result-display" class="result">0</div>
+        </div>
+        <div class="controls">
+            <button id="mic-button" aria-label="Activar micrófono">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="36px" height="36px">
+                    <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z"/>
+                    <path d="M0 0h24v24H0z" fill="none"/>
+                </svg>
+            </button>
+            <p id="status-message">Presiona el micrófono para hablar</p>
+        </div>
+    </div>
+
+    <!-- Modal de Ayuda para Permisos -->
+    <div id="permission-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Habilitar Micrófono</h2>
+            <p>Para usar la calculadora por voz, necesitas dar permiso al micrófono.</p>
+            <ol>
+                <li>Busca el <strong>icono de candado (🔒)</strong> en la barra de direcciones de tu navegador.</li>
+                <li>Haz clic en él.</li>
+                <li>Activa la opción de <strong>Micrófono</strong>.</li>
+            </ol>
+            <p class="note">✅ ¡No necesitas recargar la página! La calculadora se activará automáticamente cuando concedas el permiso.</p>
+            <button id="modal-close-btn" class="modal-close-btn">Entendido</button>
+        </div>
+    </div>
+
+
+    <script>
+        const micButton = document.getElementById('mic-button');
+        const expressionDisplay = document.getElementById('expression-display');
+        const resultDisplay = document.getElementById('result-display');
+        const statusMessage = document.getElementById('status-message');
+        const permissionModal = document.getElementById('permission-modal');
+        const closeModalBtn = document.getElementById('modal-close-btn');
+
+        let recognition;
+
+        function showPermissionDeniedUI() {
+            micButton.disabled = true;
+            statusMessage.innerHTML = 'Micrófono bloqueado. <a id="permission-help-link">¿Necesitas ayuda?</a>';
+            document.getElementById('permission-help-link').addEventListener('click', () => {
+                permissionModal.classList.add('visible');
+            });
+        }
+
+        function showPermissionGrantedUI() {
+             micButton.disabled = false;
+             statusMessage.textContent = 'Presiona el micrófono para hablar';
+        }
+
+        function checkAndSetupPermissions() {
+            if (!navigator.permissions) {
+                console.log("Permissions API no soportada. Se usará el método antiguo.");
+                setupSpeechRecognition();
+                return;
+            }
+            navigator.permissions.query({ name: 'microphone' }).then((permissionStatus) => {
+                console.log(`Estado inicial del permiso de micrófono: ${permissionStatus.state}`);
+                
+                if (permissionStatus.state === 'denied') {
+                    showPermissionDeniedUI();
+                } else {
+                    setupSpeechRecognition();
+                }
+
+                permissionStatus.onchange = () => {
+                    console.log(`El estado del permiso ha cambiado a: ${permissionStatus.state}`);
+                    if (permissionStatus.state === 'denied') {
+                        showPermissionDeniedUI();
+                        if (recognition) recognition.stop(); // Detener si estaba en marcha
+                    } else {
+                        showPermissionGrantedUI();
+                        // Si la API de reconocimiento no estaba configurada, la configuramos ahora
+                        if(!recognition) setupSpeechRecognition();
+                    }
+                };
+            }).catch(err => {
+                 console.error("Error al consultar permisos: ", err);
+                 setupSpeechRecognition(); // Fallback por si la consulta falla
+            });
+        }
+
+        function setupSpeechRecognition() {
+             if (recognition) return; // Evitar re-configurar
+
+             if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.lang = 'es-ES';
+                recognition.interimResults = false;
+                recognition.continuous = false;
+
+                micButton.addEventListener('click', () => {
+                    if (micButton.disabled) return;
+                    if (micButton.classList.contains('listening')) {
+                        recognition.stop();
+                    } else {
+                        try {
+                            recognition.start();
+                        } catch (e) {
+                            console.error("Error al iniciar reconocimiento:", e);
+                            statusMessage.textContent = 'Error al iniciar micrófono.';
+                            micButton.classList.remove('listening');
+                        }
+                    }
+                });
+
+                recognition.onstart = () => {
+                    micButton.classList.add('listening');
+                    statusMessage.textContent = 'Escuchando...';
+                };
+
+                recognition.onresult = (event) => {
+                    const speechResult = event.results[0][0].transcript.toLowerCase().trim();
+                    processSpeech(speechResult);
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Error en el reconocimiento de voz:', event.error);
+                    let errorMessage;
+                    if (event.error === 'no-speech') {
+                        errorMessage = 'No se detectó voz. Inténtalo de nuevo.';
+                    } else if (event.error === 'audio-capture') {
+                        errorMessage = 'Problema con el micrófono.';
+                    } else if (event.error === 'not-allowed') {
+                        // El listener onchange de la API de permisos ya maneja la UI.
+                        // Esto actúa como fallback.
+                        showPermissionDeniedUI();
+                        return;
+                    } else if (event.error === 'network') {
+                        errorMessage = 'Error de red. Revisa tu conexión.';
+                    } else {
+                        errorMessage = 'Error en el reconocimiento.';
+                    }
+                    statusMessage.textContent = errorMessage;
+                };
+
+                recognition.onend = () => {
+                    micButton.classList.remove('listening');
+                    if (!micButton.disabled && (statusMessage.textContent === 'Escuchando...' || statusMessage.textContent.startsWith('"'))) {
+                        statusMessage.textContent = 'Presiona el micrófono para hablar';
+                    }
+                };
+
+            } else {
+                micButton.disabled = true;
+                statusMessage.textContent = 'Tu navegador no soporta reconocimiento de voz.';
+            }
+        }
+
+        // Event Listeners para el modal
+        closeModalBtn.addEventListener('click', () => {
+            permissionModal.classList.remove('visible');
+        });
+        permissionModal.addEventListener('click', (e) => {
+            if (e.target === permissionModal) {
+                permissionModal.classList.remove('visible');
+            }
+        });
+        
+        // --- Resto del código de la calculadora (sin cambios) ---
+        let currentExpression = '';
+        function processSpeech(speech) {
+            statusMessage.textContent = `"${speech}"`;
+            if (speech.includes('borrar') || speech.includes('limpiar')) { clearCalculator(); return; }
+            if (speech.includes('resultado') || speech.includes('igual')) { calculateResult(); return; }
+            let processedSpeech = speech.replace(/cero/g, '0').replace(/uno/g, '1').replace(/dos/g, '2').replace(/tres/g, '3').replace(/cuatro/g, '4').replace(/cinco/g, '5').replace(/seis/g, '6').replace(/siete/g, '7').replace(/ocho/g, '8').replace(/nueve/g, '9').replace(/punto/g, '.').replace(/coma/g, '.').replace(/más/g, '+').replace(/menos/g, '-').replace(/por/g, '*').replace(/equis/g, '*').replace(/dividido por/g, '/').replace(/dividido entre/g, '/').replace(/entre/g, '/').replace(/\s+/g, '');
+            const operators = ['+', '-', '*', '/']; const lastCharOfCurrent = currentExpression.slice(-1);
+            if (operators.includes(processedSpeech)) { if (currentExpression === '' && resultDisplay.textContent !== '0' && resultDisplay.textContent !== 'Error') { currentExpression = resultDisplay.textContent + processedSpeech; } else if (operators.includes(lastCharOfCurrent)) { currentExpression = currentExpression.slice(0, -1) + processedSpeech; } else if (currentExpression !== '') { currentExpression += processedSpeech; } } else { if (expressionDisplay.textContent !== '' && resultDisplay.textContent !== '0' && currentExpression === '') { currentExpression = processedSpeech; resultDisplay.textContent = '0'; } else { currentExpression += processedSpeech; } }
+            expressionDisplay.textContent = formatExpressionForDisplay(currentExpression);
+        }
+        function formatExpressionForDisplay(expression) { return expression.replace(/\*/g, ' × ').replace(/\//g, ' ÷ ').replace(/\+/g, ' + ').replace(/-/g, ' - '); }
+        function calculateResult() {
+            if (currentExpression === '') { if (resultDisplay.textContent !== '0' && resultDisplay.textContent !== 'Error') { expressionDisplay.textContent = formatExpressionForDisplay(resultDisplay.textContent); } return; }
+            try { const sanitizedExpression = currentExpression.replace(/[^-()\d/*+.]/g, ''); if (/[+\-*/.]$/.test(sanitizedExpression) || /^[+\-*/.]/.test(sanitizedExpression)) { throw new Error("Expresión inválida."); } let result = eval(sanitizedExpression); if (Number.isFinite(result)) { result = parseFloat(result.toFixed(10)); resultDisplay.textContent = result; expressionDisplay.textContent = formatExpressionForDisplay(currentExpression) + ' ='; currentExpression = ''; } else { resultDisplay.textContent = 'Error'; expressionDisplay.textContent = formatExpressionForDisplay(currentExpression) + ' ='; currentExpression = ''; } } catch (error) { console.error('Error al calcular:', error); resultDisplay.textContent = 'Error'; expressionDisplay.textContent = formatExpressionForDisplay(currentExpression) + ' ='; currentExpression = ''; }
+        }
+        function clearCalculator() {
+            currentExpression = ''; expressionDisplay.textContent = ''; resultDisplay.textContent = '0';
+            // Solo cambiar el mensaje si el micro no está deshabilitado
+            if (!micButton.disabled) { statusMessage.textContent = 'Presiona el micrófono para hablar'; }
+        }
+
+        // --- INICIO DE LA APLICACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAndSetupPermissions();
+            clearCalculator();
+        });
+
+    </script>
+</body>
+</html>
